@@ -46,15 +46,55 @@ public class WeatherService : IWeatherService
         if (latestSavedData == null || (DateTimeOffset.UtcNow - latestSavedData.Timestamp).Duration().TotalMinutes >= 10)
         {
             _logger.LogDebug("Weather data for {City} is stale or missing. Fetching fresh data.", location.City);
-            var weatherData = await GetCurrentWeatherDataFromOwmAsync(location.City, location.Country, location.Latitude, location.Longitude, ct);
-            
+            var weatherData = await GetCurrentWeatherDataFromOwmAsync(locationId, location.City, location.Country, location.Latitude, location.Longitude, ct);
+
             var weatherEntity = ConvertToEntity(weatherData);
             await _dbContext.WeatherData.AddAsync(weatherEntity, ct);
 
             await UpsertForecastsAsync(location.City, location.Country, weatherData, ct);
 
             await _dbContext.SaveChangesAsync(ct);
-            _logger.LogInformation("Successfully updated weather data for {City} in database", location.City);
+            _logger.LogInformation("Successfully updated weather and alerts for {City}", location.City);
+        }
+    }
+
+    private async Task PersistOwmAlertsAsync(int locationId, OwmAlert[] alerts, CancellationToken ct)
+    {
+        foreach (var owmAlert in alerts)
+        {
+            var message = $"{owmAlert.Event}: {owmAlert.Description}";
+            var createdAt = DateTimeOffset.FromUnixTimeSeconds(owmAlert.Start);
+
+            var exists = await _dbContext.Alerts.AnyAsync(a =>
+                a.LocationId == locationId &&
+                a.Message == message &&
+                a.CreatedAt == createdAt, ct);
+
+            if (!exists)
+            {
+                _logger.LogWarning("New OWM alert for {CityId}: {Event}", locationId, owmAlert.Event);
+                var entity = new AlertEntity
+                {
+                    LocationId = locationId,
+                    Message = message,
+                    Severity = AlertSeverity.High,
+                    CreatedAt = createdAt,
+                    IsActive = true
+                };
+                await _dbContext.Alerts.AddAsync(entity, ct);
+
+                // ── MOCK EMAIL DISPATCHING ──
+                // Find all subscribers for this location
+                var subscribers = await _dbContext.AlertSubscriptions
+                    .Where(s => s.LocationId == locationId)
+                    .ToListAsync(ct);
+
+                foreach (var sub in subscribers)
+                {
+                    _logger.LogInformation("[MOCK EMAIL SENT] To: {Email} | Subject: WEATHER ALERT for {City} | Body: {Message}",
+                        sub.Email, locationId, entity.Message);
+                }
+            }
         }
     }
 
@@ -234,8 +274,14 @@ public class WeatherService : IWeatherService
 
             if (isStale)
             {
-                var weatherData = await GetCurrentWeatherDataFromOwmAsync(location.City, location.Country, location.Latitude, location.Longitude, ct);
-                
+                var weatherData = await GetCurrentWeatherDataFromOwmAsync(
+                    locationId,
+                    location.City,
+                    location.Country,
+                    location.Latitude,
+                    location.Longitude,
+                    ct);
+
                 var weatherEntity = ConvertToEntity(weatherData);
                 await _dbContext.WeatherData.AddAsync(weatherEntity, ct);
                 await UpsertForecastsAsync(location.City, location.Country, weatherData, ct);
@@ -272,7 +318,7 @@ public class WeatherService : IWeatherService
             .FirstOrDefaultAsync(x => x.City.ToLower() == city.ToLower(), ct);
     }
 
-    public async Task<WeatherData> GetCurrentWeatherDataFromOwmAsync(string city, string country, double lat, double lon, CancellationToken ct)
+    public async Task<WeatherData> GetCurrentWeatherDataFromOwmAsync(int locationId, string city, string country, double lat, double lon, CancellationToken ct)
     {
         var oneCall = await _owmClient.GetOneCallAsync(lat, lon, ct)
                 ?? throw new InvalidOperationException("OWM One Call API returned no data.");
@@ -290,6 +336,11 @@ public class WeatherService : IWeatherService
         {
             var nextTime = DateTimeOffset.FromUnixTimeSeconds(nextChange.Dt).LocalDateTime;
             nextEventNotes = $"{nextChange.Weather.FirstOrDefault()?.Main} expected at {nextTime:HH:mm}";
+        }
+
+        if (oneCall.Alerts != null && oneCall.Alerts.Length != 0)
+        {
+            await PersistOwmAlertsAsync(locationId, oneCall.Alerts, ct);
         }
 
         return new WeatherData(

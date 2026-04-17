@@ -14,23 +14,6 @@ public class AlertServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_ReturnsCreatedAlert()
-    {
-        // Arrange
-        var dto = new AlertDto("Singapore", "Heavy rain expected", AlertSeverity.High);
-
-        // Act
-        var result = await _sut.CreateAsync(dto);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.City.Should().Be(dto.City);
-        result.Message.Should().Be(dto.Message);
-        result.Severity.Should().Be(dto.Severity);
-        result.IsActive.Should().BeTrue();
-    }
-
-    [Fact]
     public async Task GetAllAsync_ReturnsEmptyListInitially()
     {
         // Act

@@ -1,7 +1,6 @@
 using WeatherApi.Core.Models;
-using WeatherApi.Core.Data.Entities;
 
-namespace WeatherApi.Core.Entities;
+namespace WeatherApi.Core.Data.Entities;
 
 public class AlertEntity
 {

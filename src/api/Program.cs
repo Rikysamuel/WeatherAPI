@@ -64,7 +64,7 @@ try
 
     // ── Authentication (JWT) ──
     var jwtSettings = builder.Configuration.GetSection("Jwt");
-    var jwtKey = jwtSettings["Key"] ?? "dev-secret-key-not-for-production-use"; //CHANGE THIS
+    var jwtKey = jwtSettings["Key"]
     var jwtIssuer = jwtSettings["Issuer"] ?? "weatherapi";
     var jwtAudience = jwtSettings["Audience"] ?? "weatherapi";
 

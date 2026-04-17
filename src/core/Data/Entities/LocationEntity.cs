@@ -1,4 +1,4 @@
-namespace WeatherApi.Core.Entities;
+namespace WeatherApi.Core.Data.Entities;
 
 public class LocationEntity
 {

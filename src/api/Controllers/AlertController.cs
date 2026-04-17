@@ -17,17 +17,40 @@ public class AlertController(IAlertService alertService) : BaseApiController
         return Ok(alerts);
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id, CancellationToken ct)
     {
         var alert = await _alertService.GetByIdAsync(id, ct);
         return alert != null ? Ok(alert) : NotFound();
     }
 
-    [HttpPost]
-    public async Task<IActionResult> CreateAlerts([FromBody] AlertDto dto, CancellationToken ct)
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteAlert(int id, CancellationToken ct)
     {
-        var alert = await _alertService.CreateAsync(dto, ct);
-        return CreatedAtAction(nameof(GetById), new { id = alert.Id }, alert);
+        var success = await _alertService.DeleteAsync(id, ct);
+        return success ? NoContent() : NotFound();
+    }
+
+    // ── Subscriptions ──
+
+    [HttpPost("subscribe")]
+    public async Task<IActionResult> Subscribe([FromBody] AlertSubscriptionDto dto, CancellationToken ct)
+    {
+        var sub = await _alertService.SubscribeAsync(dto, ct);
+        return Ok(sub);
+    }
+
+    [HttpDelete("unsubscribe/{id:int}")]
+    public async Task<IActionResult> Unsubscribe(int id, CancellationToken ct)
+    {
+        await _alertService.UnsubscribeAsync(id, ct);
+        return NoContent();
+    }
+
+    [HttpGet("subscriptions")]
+    public async Task<IActionResult> GetSubscriptions([FromQuery] string? email, CancellationToken ct)
+    {
+        var subs = await _alertService.GetSubscriptionsAsync(email, ct);
+        return Ok(subs);
     }
 }

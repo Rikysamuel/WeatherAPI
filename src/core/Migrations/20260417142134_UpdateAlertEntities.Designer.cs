@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WeatherApi.Core.Data;
@@ -11,9 +12,11 @@ using WeatherApi.Core.Data;
 namespace WeatherApi.External.Migrations
 {
     [DbContext(typeof(WeatherDbContext))]
-    partial class WeatherDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260417142134_UpdateAlertEntities")]
+    partial class UpdateAlertEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -50,8 +53,7 @@ namespace WeatherApi.External.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("LocationId", "CreatedAt", "Message")
-                        .IsUnique();
+                    b.HasIndex("LocationId");
 
                     b.ToTable("Alerts", "weather");
                 });

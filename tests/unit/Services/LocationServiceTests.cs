@@ -5,7 +5,7 @@ using WeatherApi.Core.Services;
 using Moq;
 using Microsoft.Extensions.Logging;
 using WeatherApi.Core.Interfaces;
-using WeatherApi.Core.Entities;
+using WeatherApi.Core.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace WeatherApi.Tests.Unit.Services;

@@ -1,7 +1,7 @@
 using WeatherApi.Core.Data;
 using WeatherApi.Core.Interfaces;
 using WeatherApi.Core.Models;
-using WeatherApi.Core.Entities;
+using WeatherApi.Core.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 

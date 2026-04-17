@@ -59,18 +59,32 @@ public record LocationResponse(
 );
 
 public record AlertDto(
-    string City,
+    int LocationId,
     string Message,
     AlertSeverity Severity
 );
 
 public record AlertResponse(
     int Id,
+    int LocationId,
     string City,
     string Message,
     AlertSeverity Severity,
     DateTimeOffset CreatedAt,
     bool IsActive
+);
+
+public record AlertSubscriptionDto(
+    int LocationId,
+    string Email
+);
+
+public record AlertSubscriptionResponse(
+    int Id,
+    int LocationId,
+    string City,
+    string Email,
+    DateTimeOffset CreatedAt
 );
 
 public enum AlertSeverity

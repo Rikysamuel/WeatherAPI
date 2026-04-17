@@ -25,14 +25,18 @@ public interface ILocationService
 public interface IAlertService
 {
     Task<IReadOnlyList<AlertResponse>> GetAllAsync(CancellationToken ct = default);
-    Task<AlertResponse> CreateAsync(AlertDto dto, CancellationToken ct = default);
     Task<AlertResponse?> GetByIdAsync(int id, CancellationToken ct = default);
     Task<bool> DeleteAsync(int id, CancellationToken ct = default);
+
+    // Subscription methods
+    Task<AlertSubscriptionResponse> SubscribeAsync(AlertSubscriptionDto dto, CancellationToken ct = default);
+    Task UnsubscribeAsync(int subscriptionId, CancellationToken ct = default);
+    Task<IReadOnlyList<AlertSubscriptionResponse>> GetSubscriptionsAsync(string? email = null, CancellationToken ct = default);
 }
 
 public interface IExportService
 {
-    Task<byte[]> ExportAsync(string city, string format = "csv", CancellationToken ct = default);
+    Task<byte[]> ExportAsync(int locationId, int days = 5, string format = "csv", CancellationToken ct = default);
 }
 
 public interface IOwmClient
@@ -101,6 +105,30 @@ public class OwmOneCallResponse
 
     [JsonPropertyName("daily")]
     public DailyForecast[] Daily { get; set; } = Array.Empty<DailyForecast>();
+
+    [JsonPropertyName("alerts")]
+    public OwmAlert[] Alerts { get; set; } = Array.Empty<OwmAlert>();
+}
+
+public class OwmAlert
+{
+    [JsonPropertyName("sender_name")]
+    public string SenderName { get; set; } = string.Empty;
+
+    [JsonPropertyName("event")]
+    public string Event { get; set; } = string.Empty;
+
+    [JsonPropertyName("start")]
+    public long Start { get; set; }
+
+    [JsonPropertyName("end")]
+    public long End { get; set; }
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = string.Empty;
+
+    [JsonPropertyName("tags")]
+    public string[] Tags { get; set; } = Array.Empty<string>();
 }
 
 public class CurrentWeather

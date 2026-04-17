@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace WeatherApi.Core.Data.Entities;
 
 public class WeatherDataEntity
