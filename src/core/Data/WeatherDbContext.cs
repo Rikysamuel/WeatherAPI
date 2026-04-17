@@ -10,6 +10,7 @@ public class WeatherDbContext : DbContext
     public DbSet<LocationEntity> Locations => Set<LocationEntity>();
     public DbSet<AlertEntity> Alerts => Set<AlertEntity>();
     public DbSet<AlertSubscriptionEntity> AlertSubscriptions => Set<AlertSubscriptionEntity>();
+    public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<WeatherDataEntity> WeatherData { get; set; }
     public DbSet<HourlySummaryEntity> HourlySummaries { get; set; }
     public DbSet<DailySummaryEntity> DailySummaries { get; set; }
@@ -17,6 +18,15 @@ public class WeatherDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<UserEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Username).IsUnique();
+            entity.Property(e => e.Username).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.PasswordHash).IsRequired();
+        })
+        .HasDefaultSchema("weather");
 
         modelBuilder.Entity<LocationEntity>(entity =>
         {

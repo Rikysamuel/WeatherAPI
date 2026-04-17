@@ -1,27 +1,41 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using BCrypt.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using WeatherApi.Core.Data;
 
 namespace WeatherApi.Controllers;
 
-public class AuthController(IConfiguration configuration) : BaseApiController
+public class AuthController(IConfiguration configuration, WeatherDbContext dbContext) : BaseApiController
 {
     private readonly IConfiguration _configuration = configuration;
+    private readonly WeatherDbContext _dbContext = dbContext;
 
     [HttpPost("token")]
     [AllowAnonymous]
-    public IActionResult GetToken([FromBody] TokenRequest request)
+    public async Task<IActionResult> GetToken([FromBody] TokenRequest request)
     {
+        if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
+            return BadRequest("Username and password are required.");
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+
+        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        {
+            return Unauthorized("Invalid username or password.");
+        }
+
         var jwtSettings = _configuration.GetSection("Jwt");
-        var key = Encoding.UTF8.GetBytes(jwtSettings["Key"] ?? "dev-secret-key-not-for-production-use");
+        var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]);
 
         var claims = new[]
         {
-            new Claim(ClaimTypes.Name, request.Username ?? "test-user"),
-            new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString())
+            new Claim(ClaimTypes.Name, user.Username),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
         };
 
         var credentials = new SigningCredentials(
@@ -41,4 +55,4 @@ public class AuthController(IConfiguration configuration) : BaseApiController
     }
 }
 
-public record TokenRequest(string? Username = null);
+public record TokenRequest(string Username, string Password);
