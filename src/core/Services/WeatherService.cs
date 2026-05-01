@@ -30,31 +30,15 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
     {
         var location = await _locationService.GetByIdOrThrowAsync(locationId, ct);
 
-        _logger.LogInformation("Retrieving weather for {City} (LocationId: {LocationId}) from OWM if stale", location.City, locationId);
-        var latestSavedData = await GetLatestWeatherFromDatabaseAsync(location.City, ct);
+        _logger.LogInformation("Retrieving weather for {City} (LocationId: {LocationId}) from OWM", location.City, locationId);
+        var weatherData = await GetCurrentWeatherDataFromOwmAsync(locationId, location.City, location.Country, location.Latitude, location.Longitude, ct);
 
-        if (latestSavedData == null || (DateTimeOffset.UtcNow - latestSavedData.Value).Duration().TotalMinutes >= 60)
-        {
-            _logger.LogDebug("Weather data for {City} is stale or missing. Fetching fresh data.", location.City);
-            var weatherData = await GetCurrentWeatherDataFromOwmAsync(locationId, location.City, location.Country, location.Latitude, location.Longitude, ct);
+        await UpsertDailyObservedAsync(location.City, location.Country, weatherData, ct);
+        await UpsertDailyPredictionsAsync(location.City, location.Country, weatherData.DailySummary, ct);
+        await RefreshHourlyForecastsAsync(location.City, location.Country, weatherData.HourlySummary, ct);
 
-            await UpsertDailyObservedAsync(location.City, location.Country, weatherData, ct);
-            await UpsertDailyPredictionsAsync(location.City, location.Country, weatherData.DailySummary, ct);
-            await RefreshHourlyForecastsAsync(location.City, location.Country, weatherData.HourlySummary, ct);
-
-            await _dbContext.SaveChangesAsync(ct);
-            _logger.LogInformation("Successfully updated weather and alerts for {City}", location.City);
-        }
-    }
-
-    private async Task<DateTimeOffset?> GetLatestWeatherFromDatabaseAsync(string city, CancellationToken ct)
-    {
-        var today = DateTime.UtcNow.Date;
-        var row = await _dbContext.DailyWeather
-            .Where(x => x.City.ToLower() == city.ToLower() && x.Date == today)
-            .FirstOrDefaultAsync(ct);
-
-        return row?.ObservedTimestamp;
+        await _dbContext.SaveChangesAsync(ct);
+        _logger.LogInformation("Successfully updated weather and alerts for {City}", location.City);
     }
 
     private async Task UpsertDailyObservedAsync(string city, string country, WeatherData data, CancellationToken ct)

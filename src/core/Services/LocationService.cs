@@ -29,41 +29,6 @@ public class LocationService(WeatherDbContext dbContext, IOwmClient owmClient, I
         return locations.Select(ToResponse);
     }
 
-    public async Task<LocationResponse> CreateAsync(LocationDto dto, CancellationToken ct = default)
-    {
-        if (string.IsNullOrEmpty(dto.City))
-        {
-            _logger.LogWarning("Attempted to create location with empty city name");
-            throw new ArgumentException("City cannot be empty.");
-        }
-
-        _logger.LogInformation("Creating location: {City}, {Country}", dto.City, dto.Country);
-
-        var existing = await _dbContext.Locations
-            .FirstOrDefaultAsync(x => x.City.ToLower() == dto.City.ToLower(), ct);
-
-        if (existing != null)
-        {
-            _logger.LogInformation("Location {City} already exists with ID {Id}", dto.City, existing.Id);
-            return ToResponse(existing);
-        }
-
-        var entity = new LocationEntity
-        {
-            ZipCode = dto.ZipCode,
-            City = dto.City,
-            Country = dto.Country ?? "N/A",
-            Latitude = dto.Latitude,
-            Longitude = dto.Longitude
-        };
-
-        await _dbContext.Locations.AddAsync(entity, ct);
-        await _dbContext.SaveChangesAsync(ct);
-        
-        _logger.LogInformation("Successfully created location {City} with ID {Id}", dto.City, entity.Id);
-        return ToResponse(entity);
-    }
-
     public async Task<LocationResponse?> GetByIdAsync(int id, CancellationToken ct = default)
     {
         _logger.LogDebug("Getting location by ID: {Id}", id);
