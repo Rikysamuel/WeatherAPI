@@ -18,7 +18,6 @@ public interface ILocationService
     Task<LocationResponse?> GetByIdAsync(int id, CancellationToken ct = default);
     Task<LocationResponse> GetByIdOrThrowAsync(int id, CancellationToken ct = default);
     Task DeleteAsync(int id, CancellationToken ct = default);
-    Task DeleteByCityNameAsync(string cityName, CancellationToken ct = default);
     Task<LocationResponse?> AddOrGetByCityNameAsync(string cityName, CancellationToken ct = default);
 }
 
@@ -40,9 +39,7 @@ public interface IExportService
 
 public interface IOwmClient
 {
-    Task<T?> GetAsync<T>(string endpoint, CancellationToken ct = default);
     Task<OwmGeoResult[]?> GeocodeAsync(string city, CancellationToken ct = default);
-    Task<OwmGeoResult[]?> GeocodeAsync(string zipCode, string countryCode, CancellationToken ct = default);
     Task<OwmOneCallResponse?> GetOneCallAsync(double lat, double lon, CancellationToken ct = default);
     Task<OwmHistoricalResponse?> GetHistoricalWeatherAsync(double lat, double lon, long dt, CancellationToken ct = default);
 }

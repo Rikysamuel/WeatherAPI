@@ -392,7 +392,7 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
         }) ?? throw new InvalidOperationException("Failed to retrieve forecast data.");
     }
 
-    public async Task<WeatherData> GetCurrentWeatherDataFromOwmAsync(int locationId, string city, string country, double lat, double lon, CancellationToken ct)
+    private async Task<WeatherData> GetCurrentWeatherDataFromOwmAsync(int locationId, string city, string country, double lat, double lon, CancellationToken ct)
     {
         var oneCall = await _owmClient.GetOneCallAsync(lat, lon, ct)
                 ?? throw new InvalidOperationException("OWM One Call API returned no data.");

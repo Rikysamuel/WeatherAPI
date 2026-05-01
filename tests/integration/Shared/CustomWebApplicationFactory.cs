@@ -54,19 +54,16 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
 public class MockOwmClient : IOwmClient
 {
-    public void Reset() { }
-
-    public Task<T?> GetAsync<T>(string endpoint, CancellationToken ct = default)
-        => Task.FromResult<T?>(default);
+    public void Reset()
+    {
+        // No mutable state to reset currently
+    }
 
     public Task<OwmGeoResult[]?> GeocodeAsync(string city, CancellationToken ct = default)
         => Task.FromResult<OwmGeoResult[]?>(
         [
             new OwmGeoResult { Name = city, Country = "SG", Lat = 1.35, Lon = 103.82 }
         ]);
-
-    public Task<OwmGeoResult[]?> GeocodeAsync(string zipCode, string countryCode, CancellationToken ct = default)
-        => Task.FromResult<OwmGeoResult[]?>(null);
 
     public Task<OwmOneCallResponse?> GetOneCallAsync(double lat, double lon, CancellationToken ct = default)
         => Task.FromResult<OwmOneCallResponse?>(new OwmOneCallResponse
@@ -148,12 +145,6 @@ public class MockLocationService : ILocationService
     public Task DeleteAsync(int id, CancellationToken ct = default)
     {
         Locations.RemoveAll(l => l.Id == id);
-        return Task.CompletedTask;
-    }
-
-    public Task DeleteByCityNameAsync(string cityName, CancellationToken ct = default)
-    {
-        Locations.RemoveAll(l => l.City.Equals(cityName, StringComparison.OrdinalIgnoreCase));
         return Task.CompletedTask;
     }
 

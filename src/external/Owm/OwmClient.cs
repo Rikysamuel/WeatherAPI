@@ -10,21 +10,9 @@ public class OwmClient(HttpClient httpClient, IOptions<OwmOptions> options) : IO
     private readonly HttpClient _httpClient = httpClient;
     private readonly OwmOptions _options = options.Value;
 
-    public async Task<T?> GetAsync<T>(string endpoint, CancellationToken ct = default)
-    {
-        var url = $"{endpoint}{(endpoint.Contains('?') ? "&" : "?")}appid={_options.ApiKey}&units=metric";
-        return await _httpClient.GetFromJsonAsync<T>(url, ct);
-    }
-
     public async Task<OwmGeoResult[]?> GeocodeAsync(string city, CancellationToken ct = default)
     {
         var url = $"/geo/1.0/direct?q={Uri.EscapeDataString(city)}&limit=1&appid={_options.ApiKey}";
-        return await _httpClient.GetFromJsonAsync<OwmGeoResult[]>(url, ct);
-    }
-
-    public async Task<OwmGeoResult[]?> GeocodeAsync(string zipCode, string countryCode, CancellationToken ct = default)
-    {
-        var url = $"/geo/1.0/zip?zip={Uri.EscapeDataString(zipCode)},{Uri.EscapeDataString(countryCode)}&appid={_options.ApiKey}";
         return await _httpClient.GetFromJsonAsync<OwmGeoResult[]>(url, ct);
     }
 

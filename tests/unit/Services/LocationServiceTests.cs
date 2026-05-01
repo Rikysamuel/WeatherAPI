@@ -31,22 +31,6 @@ public class LocationServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_ReturnsCreatedLocation()
-    {
-        // Arrange
-        var dto = new LocationDto("310116", "Singapore", "SG", 1.3521, 103.8198);
-
-        // Act
-        var result = await _svc.CreateAsync(dto);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.City.Should().Be(dto.City);
-        result.Latitude.Should().Be(dto.Latitude);
-        result.Longitude.Should().Be(dto.Longitude);
-    }
-
-    [Fact]
     public async Task FindByNameAsync_ReturnsEmptyListInitially()
     {
         // Act

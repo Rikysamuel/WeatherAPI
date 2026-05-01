@@ -104,31 +104,6 @@ public class LocationService(WeatherDbContext dbContext, IOwmClient owmClient, I
         }
     }
 
-    public async Task DeleteByCityNameAsync(string cityName, CancellationToken ct = default)
-    {
-        _logger.LogWarning("Deleting location by name: {CityName}", cityName);
-        var entity = await _dbContext.Locations.FirstOrDefaultAsync(x => x.City.ToLower() == cityName.ToLower(), ct);
-
-        if (entity == null)
-        {
-            _logger.LogInformation("Location {City} not found for deletion", cityName);
-            return;
-        }
-
-        var hasWeatherData = await _dbContext.DailyWeather.AnyAsync(x => x.City.ToLower() == entity.City.ToLower(), ct)
-            || await _dbContext.HourlySummaries.AnyAsync(x => x.City.ToLower() == entity.City.ToLower(), ct);
-
-        if (hasWeatherData)
-        {
-            _logger.LogWarning("Deletion blocked: Location {City} has associated weather data.", entity.City);
-            throw new InvalidOperationException($"Cannot delete location '{entity.City}' because it still has associated weather data. Please delete the weather data first.");
-        }
-
-        _dbContext.Locations.Remove(entity);
-        await _dbContext.SaveChangesAsync(ct);
-        _logger.LogInformation("Successfully deleted location {City} (ID: {Id})", cityName, entity.Id);
-    }
-
     public async Task<LocationResponse?> AddOrGetByCityNameAsync(string cityName, CancellationToken ct = default)
     {
         _logger.LogInformation("AddOrGetByCityName for: {CityName}", cityName);
@@ -148,40 +123,22 @@ public class LocationService(WeatherDbContext dbContext, IOwmClient owmClient, I
                 throw new KeyNotFoundException($"City '{cityName}' not found.");
             }
 
-            entity = await PopulateEntity(data, null, ct);
+            entity = new LocationEntity
+            {
+                City = data.Name,
+                Country = data.Country,
+                Latitude = data.Lat,
+                Longitude = data.Lon
+            };
+
+            await _dbContext.Locations.AddAsync(entity, ct);
+            await _dbContext.SaveChangesAsync(ct);
+            _logger.LogInformation("Persisted new geocoded location: {City} (ID: {Id})", data.Name, entity.Id);
         }
 
         return ToResponse(entity);
     }
 
-    private async Task<LocationEntity> PopulateEntity(OwmGeoResult data, string? zipCode = null, CancellationToken ct = default)
-    {
-        var entity = new LocationEntity
-        {
-            ZipCode = zipCode,
-            City = data.Name,
-            Country = data.Country,
-            Latitude = data.Lat,
-            Longitude = data.Lon
-        };
-
-        await _dbContext.Locations.AddAsync(entity, ct);
-        await _dbContext.SaveChangesAsync(ct);
-        
-        _logger.LogInformation("Persisted new geocoded location: {City} (ID: {Id})", data.Name, entity.Id);
-        return entity;
-    }
-
     private LocationResponse ToResponse(LocationEntity entity)
-    {
-        return new LocationResponse(
-            Id: entity.Id,
-            ZipCode: entity.ZipCode,
-            City: entity.City,
-            Country: entity.Country ?? "N/A",
-            Latitude: entity.Latitude,
-            Longitude: entity.Longitude,
-            CreatedAt: entity.CreatedAt
-        );
-    }
+        => new(entity.Id, entity.ZipCode, entity.City, entity.Country ?? "N/A", entity.Latitude, entity.Longitude, entity.CreatedAt);
 }
