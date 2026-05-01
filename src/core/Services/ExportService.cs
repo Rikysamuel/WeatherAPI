@@ -1,28 +1,39 @@
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using WeatherApi.Core.Common;
+using WeatherApi.Core.Data;
 using WeatherApi.Core.Interfaces;
 
 namespace WeatherApi.Core.Services;
 
-public class ExportService(IWeatherService weatherService) : IExportService
+public class ExportService(ILocationService locationService, WeatherDbContext dbContext) : IExportService
 {
-    private readonly IWeatherService _weatherService = weatherService;
-
     public async Task<byte[]> ExportAsync(int locationId, int days = 5, CancellationToken ct = default)
     {
+        var location = await locationService.GetByIdOrThrowAsync(locationId, ct);
+
         var sb = new StringBuilder();
-        sb.AppendLine("City,Country,Temperature(C),Feels Like(C),Humidity(%),Pressure(hPa),Wind Speed(m/s),Description,Timestamp (SGT)");
+        sb.AppendLine("City,Country,Date (SGT),Min Temp (C),Max Temp (C),Feels Like (C),Humidity (%),Pressure (hPa),Wind Speed (m/s),Description");
 
-        // Fetch historical data daily for the requested number of days
-        for (int i = 0; i < days; i++)
+        var startDate = DateTime.UtcNow.Date;
+        var rows = await dbContext.DailyWeather
+            .Where(x => x.City.ToLower() == location.City.ToLower() && x.Date >= startDate)
+            .OrderBy(x => x.Date)
+            .Take(days)
+            .ToListAsync(ct);
+
+        foreach (var row in rows)
         {
-            var date = DateTime.UtcNow.AddDays(-i);
-            var weather = await _weatherService.GetHistoricalAsync(locationId, date, ct);
+            var date = DateTimeUtil.ConvertToSGTime(new DateTimeOffset(row.Date, TimeSpan.Zero)).ToString("yyyy-MM-dd");
+            var minTemp = row.PredictedMinTemperature?.ToString("F1") ?? "";
+            var maxTemp = row.PredictedMaxTemperature?.ToString("F1") ?? "";
+            var feelsLike = row.ObservedFeelsLike?.ToString("F1") ?? "";
+            var humidity = row.ObservedHumidity?.ToString() ?? "";
+            var pressure = row.ObservedPressure?.ToString() ?? "";
+            var windSpeed = row.ObservedWindSpeed?.ToString("F1") ?? "";
+            var description = row.ObservedDescription ?? row.PredictedDescription ?? "N/A";
 
-            if (weather != null)
-            {
-                sb.AppendLine($"{weather.City},{weather.Country},{weather.Temperature},{weather.FeelsLike},{weather.Humidity},{weather.Pressure},{weather.WindSpeed},\"{weather.Description}\",{DateTimeUtil.ConvertToSGTime(weather.Timestamp):O}");
-            }
+            sb.AppendLine($"{location.City},{location.Country},{date},{minTemp},{maxTemp},{feelsLike},{humidity},{pressure},{windSpeed},\"{description}\"");
         }
 
         return Encoding.UTF8.GetBytes(sb.ToString());
