@@ -1,0 +1,63 @@
+name: Build, Test, and Deploy
+
+on:
+  push:
+    branches: [master]
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Run unit tests
+        run: dotnet test tests/unit/WeatherApi.Tests.Unit.csproj --no-build -c Release --logger trx
+
+      - name: Run integration tests
+        run: dotnet test tests/integration/WeatherApi.Tests.Integration.csproj --no-build -c Release --logger trx
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/weather-api:${{ github.sha }} .
+          docker tag ${{ secrets.ACR_NAME }}.azurecr.io/weather-api:${{ github.sha }} \
+            ${{ secrets.ACR_NAME }}.azurecr.io/weather-api:latest
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/weather-api:${{ github.sha }}
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/weather-api:latest
+
+      - name: Deploy to Azure App Service
+        run: |
+          az webapp config container set \
+            --name ${{ secrets.WEBAPP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --docker-registry-server-url https://${{ secrets.ACR_NAME }}.azurecr.io \
+            --docker-registry-server-user ${{ secrets.ACR_NAME }} \
+            --docker-registry-server-password $(az acr credential show --name ${{ secrets.ACR_NAME }} --query "passwords[0].value" -o tsv) \
+            --docker-custom-image-name ${{ secrets.ACR_NAME }}.azurecr.io/weather-api:latest
+
+          az webapp restart \
+            --name ${{ secrets.WEBAPP_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }}

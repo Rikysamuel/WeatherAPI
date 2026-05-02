@@ -2,8 +2,8 @@
 .qwen
 QWEN.md
 .helpers
-.github
 .config
+*.sh
 
 src/api/bin/*
 src/api/obj/*
