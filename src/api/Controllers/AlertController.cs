@@ -13,17 +13,23 @@ public class AlertController(IAlertService alertService) : BaseApiController
     private readonly IAlertService _alertService = alertService;
 
     [HttpGet]
-    public async Task<IActionResult> GetAlerts(CancellationToken ct)
+    public async Task<IActionResult> GetAlerts(
+        [FromQuery] DateTimeOffset from,
+        [FromQuery] DateTimeOffset to,
+        [FromQuery] int? locationId,
+        CancellationToken ct)
     {
-        var alerts = await _alertService.GetAllAsync(ct);
-        return Ok(alerts);
-    }
+        if (from == DateTimeOffset.MinValue || to == DateTimeOffset.MinValue)
+            return BadRequest("from and to are required query parameters.");
 
-    [HttpGet("{id:int}")]
-    public async Task<IActionResult> GetById(int id, CancellationToken ct)
-    {
-        var alert = await _alertService.GetByIdAsync(id, ct);
-        return alert != null ? Ok(alert) : NotFound();
+        if (from > to)
+            return BadRequest("from must be before or equal to to.");
+
+        if ((to - from).TotalDays > 3)
+            return BadRequest("Date range must not exceed 3 days.");
+
+        var alerts = await _alertService.GetAlertsAsync(from, to, locationId, ct);
+        return Ok(alerts);
     }
 
     [HttpDelete("{id:int}")]

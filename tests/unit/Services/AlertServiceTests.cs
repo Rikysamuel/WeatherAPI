@@ -25,52 +25,14 @@ public class AlertServiceTests
         using var ctx = CreateDbContext();
         var svc = new AlertService(ctx, NullLogger<AlertService>.Instance);
 
-        var result = await svc.GetAllAsync();
+        var now = DateTimeOffset.UtcNow;
+        var result = await svc.GetAlertsAsync(now.AddDays(-1), now.AddDays(1));
 
         result.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task GetByIdAsync_ReturnsNullWhenNotFound()
-    {
-        using var ctx = CreateDbContext();
-        var svc = new AlertService(ctx, NullLogger<AlertService>.Instance);
-
-        var result = await svc.GetByIdAsync(999);
-
-        result.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_ReturnsAlertWhenExists()
-    {
-        using var ctx = CreateDbContext();
-        ctx.Locations.Add(new LocationEntity { City = "Singapore", Country = "SG", Latitude = 1.35, Longitude = 103.82 });
-        ctx.SaveChanges();
-
-        var location = ctx.Locations.First();
-        var alert = new AlertEntity
-        {
-            LocationId = location.Id,
-            Message = "Heavy rain warning",
-            Severity = AlertSeverity.High,
-            CreatedAt = DateTimeOffset.UtcNow,
-            IsActive = true
-        };
-        ctx.Alerts.Add(alert);
-        ctx.SaveChanges();
-
-        var svc = new AlertService(ctx, NullLogger<AlertService>.Instance);
-
-        var result = await svc.GetByIdAsync(alert.Id);
-
-        result.Should().NotBeNull();
-        result!.Message.Should().Be("Heavy rain warning");
-        result.Severity.Should().Be(AlertSeverity.High);
-    }
-
-    [Fact]
-    public async Task GetAllAsync_ReturnsAllActiveAlertsOrderedByDate()
+    public async Task GetAllAsync_ReturnsAlertsWithinDateRange()
     {
         using var ctx = CreateDbContext();
         ctx.Locations.Add(new LocationEntity { City = "Tokyo", Country = "JP", Latitude = 35.68, Longitude = 139.69 });
@@ -97,11 +59,74 @@ public class AlertServiceTests
 
         var svc = new AlertService(ctx, NullLogger<AlertService>.Instance);
 
-        var result = await svc.GetAllAsync();
+        var now = DateTimeOffset.UtcNow;
+        var result = await svc.GetAlertsAsync(now.AddDays(-1), now);
 
         result.Should().HaveCount(2);
         result[0].Message.Should().Be("Alert 2");
         result[1].Message.Should().Be("Alert 1");
+    }
+
+    [Fact]
+    public async Task GetAllAsync_FiltersByLocationId()
+    {
+        using var ctx = CreateDbContext();
+        ctx.Locations.Add(new LocationEntity { City = "Tokyo", Country = "JP", Latitude = 35.68, Longitude = 139.69 });
+        ctx.Locations.Add(new LocationEntity { City = "London", Country = "GB", Latitude = 51.5, Longitude = -0.13 });
+        ctx.SaveChanges();
+
+        var locations = ctx.Locations.ToList();
+        ctx.Alerts.Add(new AlertEntity
+        {
+            LocationId = locations[0].Id,
+            Message = "Tokyo alert",
+            Severity = AlertSeverity.High,
+            CreatedAt = DateTimeOffset.UtcNow.AddHours(-1),
+            IsActive = true
+        });
+        ctx.Alerts.Add(new AlertEntity
+        {
+            LocationId = locations[1].Id,
+            Message = "London alert",
+            Severity = AlertSeverity.Low,
+            CreatedAt = DateTimeOffset.UtcNow.AddHours(-1),
+            IsActive = true
+        });
+        ctx.SaveChanges();
+
+        var svc = new AlertService(ctx, NullLogger<AlertService>.Instance);
+
+        var now = DateTimeOffset.UtcNow;
+        var result = await svc.GetAlertsAsync(now.AddDays(-1), now, locations[0].Id);
+
+        result.Should().HaveCount(1);
+        result[0].Message.Should().Be("Tokyo alert");
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ExcludesAlertsOutsideDateRange()
+    {
+        using var ctx = CreateDbContext();
+        ctx.Locations.Add(new LocationEntity { City = "Tokyo", Country = "JP", Latitude = 35.68, Longitude = 139.69 });
+        ctx.SaveChanges();
+
+        var location = ctx.Locations.First();
+        ctx.Alerts.Add(new AlertEntity
+        {
+            LocationId = location.Id,
+            Message = "Old alert",
+            Severity = AlertSeverity.High,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-10),
+            IsActive = true
+        });
+        ctx.SaveChanges();
+
+        var svc = new AlertService(ctx, NullLogger<AlertService>.Instance);
+
+        var now = DateTimeOffset.UtcNow;
+        var result = await svc.GetAlertsAsync(now.AddDays(-1), now);
+
+        result.Should().BeEmpty();
     }
 
     [Fact]

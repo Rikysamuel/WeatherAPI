@@ -35,9 +35,19 @@ public record DailySummary(
     double MaxTemperature
 );
 
+public record ForecastDayResponse(
+    string City,
+    string Country,
+    DateOnly Date,
+    string Description,
+    double? Temperature,
+    double? MinTemperature,
+    double? MaxTemperature
+);
+
 public record WeatherForecast(
     string City,
-    IReadOnlyList<WeatherData> Forecasts
+    IReadOnlyList<ForecastDayResponse> Forecasts
 );
 
 public record LocationDto(

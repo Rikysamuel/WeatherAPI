@@ -71,7 +71,7 @@ public class ExportServiceTests
         // Assert
         result.Should().NotBeNull();
         var csv = Encoding.UTF8.GetString(result);
-        csv.Should().Contain("City,Country,Date (SGT),Min Temp (C),Max Temp (C)");
+        csv.Should().Contain("City,Country,Date (SGT),Min Temp (C),Max Temp (C),Description");
         csv.Should().Contain(city);
         csv.Should().Contain("clear sky");
         csv.Should().Contain("scattered clouds");

@@ -128,6 +128,12 @@ public class WeatherServiceTests
         result.Should().NotBeNull();
         result.City.Should().Be(city);
         result.Forecasts.Should().HaveCount(days);
+        result.Forecasts[0].Should().BeOfType<ForecastDayResponse>();
+        result.Forecasts[0].City.Should().Be(city);
+        result.Forecasts[0].Date.Should().Be(DateOnly.FromDateTime(DateTime.UtcNow.Date));
+        result.Forecasts[0].Temperature.Should().Be(15.5);
+        result.Forecasts[0].MinTemperature.Should().Be(13.5);
+        result.Forecasts[0].MaxTemperature.Should().Be(17.5);
     }
 
     [Fact]

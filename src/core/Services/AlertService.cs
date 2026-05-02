@@ -12,25 +12,20 @@ public class AlertService(WeatherDbContext dbContext, ILogger<AlertService> logg
     private readonly WeatherDbContext _dbContext = dbContext;
     private readonly ILogger<AlertService> _logger = logger;
 
-    public async Task<IReadOnlyList<AlertResponse>> GetAllAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<AlertResponse>> GetAlertsAsync(DateTimeOffset from, DateTimeOffset to, int? locationId = null, CancellationToken ct = default)
     {
-        _logger.LogInformation("Getting all active alerts");
-        var alerts = await _dbContext.Alerts
-            .Include(a => a.Location)
-            .OrderByDescending(a => a.CreatedAt)
-            .ToListAsync(ct);
+        _logger.LogInformation("Getting alerts from {From} to {To}", from, to);
+
+        var query = _dbContext.Alerts.Include(a => a.Location).AsQueryable();
+
+        query = query.Where(a => a.CreatedAt >= from && a.CreatedAt <= to);
+
+        if (locationId.HasValue)
+            query = query.Where(a => a.LocationId == locationId.Value);
+
+        var alerts = await query.OrderByDescending(a => a.CreatedAt).ToListAsync(ct);
 
         return [.. alerts.Select(MapToResponse)];
-    }
-
-    public async Task<AlertResponse?> GetByIdAsync(int id, CancellationToken ct = default)
-    {
-        _logger.LogDebug("Getting alert by ID: {Id}", id);
-        var entity = await _dbContext.Alerts
-            .Include(a => a.Location)
-            .FirstOrDefaultAsync(a => a.Id == id, ct);
-
-        return entity == null ? null : MapToResponse(entity);
     }
 
     public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)

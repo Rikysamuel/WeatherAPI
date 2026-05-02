@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using WeatherApi.Core.Common;
 using WeatherApi.Core.Data;
 using WeatherApi.Core.Data.Entities;
 using WeatherApi.Core.Interfaces;
@@ -364,17 +365,14 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
                 .Take(days)
                 .ToListAsync(ct);
 
-            var forecasts = daily.Select(d => new WeatherData(
+            var forecasts = daily.Select(d => new ForecastDayResponse(
                 City: location.City,
                 Country: d.Country,
-                Temperature: d.PredictedTemperature ?? 0,
+                Date: DateOnly.FromDateTime(d.Date),
                 Description: d.PredictedDescription ?? "N/A",
-                NextEventNote: string.Empty,
-                FeelsLike: 0, Humidity: 0, Pressure: 0, WindSpeed: 0, WindDirection: 0, Visibility: 0, UVI: 0,
-                Sunrise: DateTimeOffset.MinValue, Sunset: DateTimeOffset.MinValue,
-                Timestamp: new DateTimeOffset(d.Date, TimeSpan.Zero),
-                HourlySummary: new List<HourlySummary>(),
-                DailySummary: new List<DailySummary>()
+                Temperature: d.PredictedTemperature,
+                MinTemperature: d.PredictedMinTemperature,
+                MaxTemperature: d.PredictedMaxTemperature
             )).ToList();
 
             return new WeatherForecast(location.City, forecasts);
@@ -397,8 +395,8 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
 
         if (nextChange != null)
         {
-            var nextTime = DateTimeOffset.FromUnixTimeSeconds(nextChange.Dt).LocalDateTime;
-            nextEventNotes = $"{nextChange.Weather.FirstOrDefault()?.Main} expected at {nextTime:HH:mm}";
+            var nextTime = DateTimeUtil.ConvertToSGTime(DateTimeOffset.FromUnixTimeSeconds(nextChange.Dt));
+            nextEventNotes = $"{nextChange.Weather.FirstOrDefault()?.Main} expected at {nextTime:HH:mm} SGT";
         }
 
         if (oneCall.Alerts != null && oneCall.Alerts.Length != 0)
