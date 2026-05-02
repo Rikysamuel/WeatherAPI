@@ -50,8 +50,8 @@ public class LocationService(WeatherDbContext dbContext, IOwmClient owmClient, I
         if (entity != null)
         {
             // Check if weather data exists for this city
-            var hasWeatherData = await _dbContext.DailyWeather.AnyAsync(x => x.City.ToLower() == entity.City.ToLower(), ct)
-                || await _dbContext.HourlySummaries.AnyAsync(x => x.City.ToLower() == entity.City.ToLower(), ct);
+            var hasWeatherData = await _dbContext.DailyWeather.AnyAsync(x => x.LocationId == entity.Id, ct)
+                || await _dbContext.HourlySummaries.AnyAsync(x => x.LocationId == entity.Id, ct);
 
             if (hasWeatherData)
             {

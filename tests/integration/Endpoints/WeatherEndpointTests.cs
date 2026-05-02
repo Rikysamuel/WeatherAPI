@@ -18,7 +18,7 @@ public class WeatherEndpointTests(CustomWebApplicationFactory factory) : Integra
         var db = scope.ServiceProvider.GetRequiredService<WeatherDbContext>();
         db.DailyWeather.Add(new DailyWeatherEntity
         {
-            City = "Singapore", Country = "SG", Date = DateTime.UtcNow.Date,
+            LocationId = 1, Date = DateTime.UtcNow.Date,
             ObservedTemperature = 30.5, ObservedDescription = "clear sky",
             ObservedFeelsLike = 32, ObservedHumidity = 75, ObservedPressure = 1012,
             ObservedWindSpeed = 5.2, ObservedWindDirection = 180,
@@ -43,7 +43,7 @@ public class WeatherEndpointTests(CustomWebApplicationFactory factory) : Integra
         var db = scope.ServiceProvider.GetRequiredService<WeatherDbContext>();
         db.DailyWeather.Add(new DailyWeatherEntity
         {
-            City = "Tokyo", Country = "JP",
+            LocationId = 1,
             Date = DateTime.UtcNow.Date.AddDays(1),
             PredictedDescription = "sunny",
             PredictedMinTemperature = 20, PredictedMaxTemperature = 28,

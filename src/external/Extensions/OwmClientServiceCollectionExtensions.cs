@@ -21,6 +21,7 @@ public static class OwmClientServiceCollectionExtensions
             client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
             client.DefaultRequestHeaders.Add("Accept", "application/json");
         })
+        .SetHandlerLifetime(Timeout.InfiniteTimeSpan)
         .AddStandardResilienceHandler();
 
         return services;

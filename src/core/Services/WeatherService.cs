@@ -23,7 +23,7 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
         var location = await _locationService.GetByIdOrThrowAsync(locationId, ct);
 
         _logger.LogInformation("Getting persisted current weather for {City} (LocationId: {LocationId})", location.City, locationId);
-        return await GetOrCreateCacheAsync(locationId, location.City, ct)
+        return await GetOrCreateCacheAsync(locationId, location.City, location.Country, ct)
             ?? throw new InvalidOperationException("Failed to retrieve weather data.");
     }
 
@@ -34,19 +34,19 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
         _logger.LogInformation("Retrieving weather for {City} (LocationId: {LocationId}) from OWM", location.City, locationId);
         var weatherData = await GetCurrentWeatherDataFromOwmAsync(locationId, location.City, location.Country, location.Latitude, location.Longitude, ct);
 
-        await UpsertDailyObservedAsync(location.City, location.Country, weatherData, ct);
-        await UpsertDailyPredictionsAsync(location.City, location.Country, weatherData.DailySummary, ct);
-        await RefreshHourlyForecastsAsync(location.City, location.Country, weatherData.HourlySummary, ct);
+        await UpsertDailyObservedAsync(locationId, weatherData, ct);
+        await UpsertDailyPredictionsAsync(locationId, weatherData.DailySummary, ct);
+        await RefreshHourlyForecastsAsync(locationId, weatherData.HourlySummary, ct);
 
         await _dbContext.SaveChangesAsync(ct);
         _logger.LogInformation("Successfully updated weather and alerts for {City}", location.City);
     }
 
-    private async Task UpsertDailyObservedAsync(string city, string country, WeatherData data, CancellationToken ct)
+    private async Task UpsertDailyObservedAsync(int locationId, WeatherData data, CancellationToken ct)
     {
         var today = DateTime.UtcNow.Date;
         var existing = await _dbContext.DailyWeather
-            .FirstOrDefaultAsync(x => x.City.ToLower() == city.ToLower() && x.Date == today, ct);
+            .FirstOrDefaultAsync(x => x.LocationId == locationId && x.Date == today, ct);
 
         if (existing != null)
         {
@@ -69,8 +69,7 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
         {
             await _dbContext.DailyWeather.AddAsync(new DailyWeatherEntity
             {
-                City = city,
-                Country = country,
+                LocationId = locationId,
                 Date = today,
                 ObservedTemperature = data.Temperature,
                 ObservedDescription = data.Description,
@@ -89,7 +88,7 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
         }
     }
 
-    private async Task UpsertDailyPredictionsAsync(string city, string country, IEnumerable<DailySummary> dailySummaries, CancellationToken ct)
+    private async Task UpsertDailyPredictionsAsync(int locationId, IEnumerable<DailySummary> dailySummaries, CancellationToken ct)
     {
         foreach (var d in dailySummaries)
         {
@@ -97,10 +96,10 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
 
             var existing = _dbContext.ChangeTracker.Entries<DailyWeatherEntity>()
                 .Select(e => e.Entity)
-                .FirstOrDefault(x => x.City.ToLower() == city.ToLower() && x.Date == date);
+                .FirstOrDefault(x => x.LocationId == locationId && x.Date == date);
 
             existing ??= await _dbContext.DailyWeather
-                .FirstOrDefaultAsync(x => x.City.ToLower() == city.ToLower() && x.Date == date, ct);
+                .FirstOrDefaultAsync(x => x.LocationId == locationId && x.Date == date, ct);
 
             if (existing != null)
             {
@@ -114,8 +113,7 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
             {
                 await _dbContext.DailyWeather.AddAsync(new DailyWeatherEntity
                 {
-                    City = city,
-                    Country = country,
+                    LocationId = locationId,
                     Date = date,
                     PredictedTemperature = (d.MinTemperature + d.MaxTemperature) / 2,
                     PredictedDescription = d.Description,
@@ -126,10 +124,10 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
         }
     }
 
-    private async Task RefreshHourlyForecastsAsync(string city, string country, IEnumerable<HourlySummary> hourlyData, CancellationToken ct)
+    private async Task RefreshHourlyForecastsAsync(int locationId, IEnumerable<HourlySummary> hourlyData, CancellationToken ct)
     {
         var existing = await _dbContext.HourlySummaries
-            .Where(h => h.City.ToLower() == city.ToLower())
+            .Where(h => h.LocationId == locationId)
             .ToListAsync(ct);
 
         _dbContext.HourlySummaries.RemoveRange(existing);
@@ -138,8 +136,7 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
         {
             await _dbContext.HourlySummaries.AddAsync(new HourlySummaryEntity
             {
-                City = city,
-                Country = country,
+                LocationId = locationId,
                 Timestamp = h.Timestamp,
                 Temperature = h.Temperature,
                 Description = h.Description
@@ -199,7 +196,7 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
 
             var targetDate = date.Date;
             var persisted = await _dbContext.DailyWeather
-                .Where(x => x.City.ToLower() == location.City.ToLower() && x.Date == targetDate)
+                .Where(x => x.LocationId == locationId && x.Date == targetDate)
                 .FirstOrDefaultAsync(ct);
 
             if (persisted?.ObservedTemperature != null)
@@ -215,7 +212,7 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
                 ?? throw new InvalidOperationException("No historical data found.");
 
             var existing = await _dbContext.DailyWeather
-                .FirstOrDefaultAsync(x => x.City.ToLower() == location.City.ToLower() && x.Date == targetDate, ct);
+                .FirstOrDefaultAsync(x => x.LocationId == locationId && x.Date == targetDate, ct);
 
             if (existing != null)
             {
@@ -237,8 +234,7 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
             {
                 await _dbContext.DailyWeather.AddAsync(new DailyWeatherEntity
                 {
-                    City = location.City,
-                    Country = location.Country,
+                    LocationId = locationId,
                     Date = targetDate,
                     ObservedTemperature = hist.Temp,
                     ObservedDescription = hist.Weather.FirstOrDefault()?.Description ?? "N/A",
@@ -258,12 +254,11 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
             await _dbContext.SaveChangesAsync(ct);
 
             var created = await _dbContext.DailyWeather
-                .FirstOrDefaultAsync(x => x.City.ToLower() == location.City.ToLower() && x.Date == targetDate, ct);
+                .FirstOrDefaultAsync(x => x.LocationId == locationId && x.Date == targetDate, ct);
 
             return created != null ? MapToWeatherData(created, location.City, location.Country) : MapToWeatherData(existing ?? new DailyWeatherEntity
             {
-                City = location.City,
-                Country = location.Country,
+                LocationId = locationId,
                 Date = targetDate,
                 ObservedTemperature = hist.Temp,
                 ObservedDescription = hist.Weather.FirstOrDefault()?.Description ?? "N/A",
@@ -304,11 +299,11 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
         _logger.LogWarning("Manually deleting all weather data for city: {City} (LocationId: {LocationId})", location.City, locationId);
 
         var daily = await _dbContext.DailyWeather
-            .Where(x => x.City.ToLower() == location.City.ToLower())
+            .Where(x => x.LocationId == locationId)
             .ToListAsync(ct);
 
         var hourly = await _dbContext.HourlySummaries
-            .Where(x => x.City.ToLower() == location.City.ToLower())
+            .Where(x => x.LocationId == locationId)
             .ToListAsync(ct);
 
         _dbContext.DailyWeather.RemoveRange(daily);
@@ -336,7 +331,7 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
             entry.Size = 1;
 
             var latestObserved = await _dbContext.DailyWeather
-                .Where(x => x.City.ToLower() == location.City.ToLower() && x.Date == DateTime.UtcNow.Date)
+                .Where(x => x.LocationId == locationId && x.Date == DateTime.UtcNow.Date)
                 .FirstOrDefaultAsync(ct);
 
             bool isStale = latestObserved?.ObservedTimestamp == null ||
@@ -352,22 +347,22 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
                     location.Longitude,
                     ct);
 
-                await UpsertDailyObservedAsync(location.City, location.Country, weatherData, ct);
-                await UpsertDailyPredictionsAsync(location.City, location.Country, weatherData.DailySummary, ct);
-                await RefreshHourlyForecastsAsync(location.City, location.Country, weatherData.HourlySummary, ct);
+                await UpsertDailyObservedAsync(locationId, weatherData, ct);
+                await UpsertDailyPredictionsAsync(locationId, weatherData.DailySummary, ct);
+                await RefreshHourlyForecastsAsync(locationId, weatherData.HourlySummary, ct);
                 await _dbContext.SaveChangesAsync(ct);
             }
 
             var today = DateTime.UtcNow.Date;
             var daily = await _dbContext.DailyWeather
-                .Where(d => d.City.ToLower() == location.City.ToLower() && d.Date >= today)
+                .Where(d => d.LocationId == locationId && d.Date >= today)
                 .OrderBy(d => d.Date)
                 .Take(days)
                 .ToListAsync(ct);
 
             var forecasts = daily.Select(d => new ForecastDayResponse(
                 City: location.City,
-                Country: d.Country,
+                Country: location.Country,
                 Date: DateOnly.FromDateTime(d.Date),
                 Description: d.PredictedDescription ?? "N/A",
                 Temperature: d.PredictedTemperature,
@@ -434,7 +429,7 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
         );
     }
 
-    private async Task<WeatherData?> GetOrCreateCacheAsync(int locationId, string city, CancellationToken ct = default)
+    private async Task<WeatherData?> GetOrCreateCacheAsync(int locationId, string city, string country, CancellationToken ct = default)
     {
         var cacheKey = $"weather:current:{locationId}";
         return await _cache.GetOrCreateAsync(cacheKey, async entry =>
@@ -444,18 +439,18 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
 
             var today = DateTime.UtcNow.Date;
             var dailyWeather = await _dbContext.DailyWeather
-                .FirstOrDefaultAsync(x => x.City.ToLower() == city.ToLower() && x.Date == today, ct)
+                .FirstOrDefaultAsync(x => x.LocationId == locationId && x.Date == today, ct)
                 ?? throw new InvalidOperationException("No weather data available.");
 
             var hourly = await _dbContext.HourlySummaries
-                .Where(h => h.City.ToLower() == city.ToLower() && h.Timestamp >= DateTimeOffset.UtcNow)
+                .Where(h => h.LocationId == locationId && h.Timestamp >= DateTimeOffset.UtcNow)
                 .OrderBy(h => h.Timestamp).Take(24).ToListAsync(ct);
 
             var daily = await _dbContext.DailyWeather
-                .Where(d => d.City.ToLower() == city.ToLower() && d.Date >= today)
+                .Where(d => d.LocationId == locationId && d.Date >= today)
                 .OrderBy(d => d.Date).Take(7).ToListAsync(ct);
 
-            return MapToWeatherData(dailyWeather, city, dailyWeather.Country, hourly, daily);
+            return MapToWeatherData(dailyWeather, city, country, hourly, daily);
         });
     }
 

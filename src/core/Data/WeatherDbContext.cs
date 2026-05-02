@@ -21,14 +21,15 @@ public class WeatherDbContext : DbContext
         modelBuilder.Entity<AlertEntity>(entity =>
         {
             entity.HasIndex(e => new { e.LocationId, e.CreatedAt, e.Message }).IsUnique();
-            entity.HasOne(e => e.Location).WithMany().HasForeignKey(e => e.LocationId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Location).WithMany().HasForeignKey(e => e.LocationId).OnDelete(DeleteBehavior.Restrict);
             entity.Property(e => e.Severity).HasConversion<int>();
+            entity.HasIndex(e => e.CreatedAt);
         });
 
         modelBuilder.Entity<AlertSubscriptionEntity>(entity =>
         {
             entity.HasIndex(e => new { e.LocationId, e.Email }).IsUnique();
-            entity.HasOne(e => e.Location).WithMany().HasForeignKey(e => e.LocationId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Location).WithMany().HasForeignKey(e => e.LocationId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<LocationEntity>(entity =>
@@ -43,13 +44,16 @@ public class WeatherDbContext : DbContext
 
         modelBuilder.Entity<DailyWeatherEntity>(entity =>
         {
-            entity.HasIndex(e => new { e.City, e.Date }).IsUnique();
+            entity.HasIndex(e => new { e.LocationId, e.Date }).IsUnique();
+            entity.HasOne(e => e.Location).WithMany().HasForeignKey(e => e.LocationId).OnDelete(DeleteBehavior.Restrict);
             entity.Property(e => e.Date).HasColumnType("date");
+            entity.HasIndex(e => e.ObservedTimestamp);
         });
 
         modelBuilder.Entity<HourlySummaryEntity>(entity =>
         {
-            entity.HasIndex(e => new { e.City, e.Timestamp }).IsUnique();
+            entity.HasIndex(e => new { e.LocationId, e.Timestamp }).IsUnique();
+            entity.HasOne(e => e.Location).WithMany().HasForeignKey(e => e.LocationId).OnDelete(DeleteBehavior.Restrict);
         });
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

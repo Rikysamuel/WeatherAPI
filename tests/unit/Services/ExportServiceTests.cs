@@ -45,20 +45,20 @@ public class ExportServiceTests
         _dbContext.DailyWeather.AddRange(
             new DailyWeatherEntity
             {
-                City = city, Country = "GB", Date = today,
+                LocationId = locationId, Date = today,
                 ObservedTemperature = 15.5, ObservedFeelsLike = 14.0,
                 ObservedHumidity = 70, ObservedPressure = 1013, ObservedWindSpeed = 5.2,
                 ObservedDescription = "clear sky"
             },
             new DailyWeatherEntity
             {
-                City = city, Country = "GB", Date = today.AddDays(1),
+                LocationId = locationId, Date = today.AddDays(1),
                 PredictedMinTemperature = 12.0, PredictedMaxTemperature = 18.0,
                 PredictedDescription = "scattered clouds"
             },
             new DailyWeatherEntity
             {
-                City = city, Country = "GB", Date = today.AddDays(2),
+                LocationId = locationId, Date = today.AddDays(2),
                 PredictedMinTemperature = 10.5, PredictedMaxTemperature = 16.0,
                 PredictedDescription = "light rain"
             }

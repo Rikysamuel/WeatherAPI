@@ -4,8 +4,8 @@ public class DailyWeatherEntity
 {
     public int Id { get; set; }
 
-    public string City { get; set; } = string.Empty;
-    public string Country { get; set; } = string.Empty;
+    public int LocationId { get; set; }
+    public LocationEntity Location { get; set; } = null!;
     public DateTime Date { get; set; }
 
     // Observed (actual weather)

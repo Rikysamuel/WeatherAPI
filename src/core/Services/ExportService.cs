@@ -17,7 +17,7 @@ public class ExportService(ILocationService locationService, WeatherDbContext db
 
         var startDate = DateTime.UtcNow.Date;
         var rows = await dbContext.DailyWeather
-            .Where(x => x.City.ToLower() == location.City.ToLower() && x.Date >= startDate)
+            .Where(x => x.LocationId == locationId && x.Date >= startDate)
             .OrderBy(x => x.Date)
             .Take(days)
             .ToListAsync(ct);
