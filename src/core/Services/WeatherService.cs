@@ -93,7 +93,12 @@ public class WeatherService(IMemoryCache cache, IOwmClient owmClient, WeatherDbC
         foreach (var d in dailySummaries)
         {
             var date = d.Timestamp.Date;
-            var existing = await _dbContext.DailyWeather
+
+            var existing = _dbContext.ChangeTracker.Entries<DailyWeatherEntity>()
+                .Select(e => e.Entity)
+                .FirstOrDefault(x => x.City.ToLower() == city.ToLower() && x.Date == date);
+
+            existing ??= await _dbContext.DailyWeather
                 .FirstOrDefaultAsync(x => x.City.ToLower() == city.ToLower() && x.Date == date, ct);
 
             if (existing != null)
