@@ -3,6 +3,13 @@ name: Build, Test, and Deploy
 on:
   push:
     branches: [master]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - '.github/workflows/**'
+      - 'WeatherApi.sln'
 
 env:
   DOTNET_VERSION: '8.0.x'
