@@ -1,150 +1,187 @@
 # Weather API
 
-A production-grade weather API built with .NET 8, providing current weather conditions, forecasts, historical data retrieval, CSV export capabilities, location management, and weather alerts. This microservice follows clean architecture principles and implements industry best practices for resilience, scalability, and maintainability.
+.NET 8 microservice providing current weather, forecasts, historical data, CSV export, location management, and alerts. Powered by OpenWeatherMap API.
 
 ![.NET](https://img.shields.io/badge/.NET-8.0-blue)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Platform](https://img.shields.io/badge/platform-Azure-blue)
 
 ## Features
 
-- 🌤️ **Current Weather**: Get real-time weather conditions for any tracked location
-- 📅 **Forecasts**: 7-day weather forecasts with hourly breakdowns
-- 📚 **Historical Data**: Access to past weather conditions (with configurable caching)
-- 📍 **Location Management**: CRUD operations for tracked locations
-- ⚠️ **Weather Alerts**: Create and manage weather alerts with severity levels
-- 📤 **Data Export**: Export weather data in CSV format
-- 🔐 **JWT Authentication**: Secure protected endpoints with bearer tokens
-- 🛡️ **Resilience Patterns**: Built-in retry mechanisms and circuit breakers
-- 📊 **Caching**: Intelligent in-memory caching for improved performance
-- 📈 **Health Monitoring**: Built-in health check endpoints
-- 📖 **API Documentation**: Interactive Swagger UI for easy exploration
+- **Current Weather**: Real-time conditions for tracked locations
+- **Forecasts**: 7-day forecast with `ForecastDayResponse` (Date, Description, Temperature, Min/Max Temp)
+- **Historical Data**: Cached past weather (1-hour TTL)
+- **CSV Export**: Unified export with observed (today) and predicted (future) data
+- **Location Management**: Add/delete locations with auto-refresh weather
+- **Weather Alerts**: Date-filtered alerts, email subscriptions (mock)
+- **Auth**: JWT registration + token endpoint
+- **Security**: Rate limiting (5/min auth, 60/min weather), security headers, CORS deny-all in production
+- **Background Worker**: Configurable interval (default 60 min), refreshes + prunes stale data (30-day cutoff)
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
 | Runtime | .NET 8 (C# 12) |
-| Database | PostgreSQL 15 |
+| Database | PostgreSQL 16 |
 | ORM | Entity Framework Core 8 |
-| Resilience | Polly (retry + circuit breaker) |
+| Resilience | Standard resilience handler (retry + circuit breaker) |
 | Auth | JWT Bearer tokens |
 | Logging | Serilog (Console + Azure) |
 | API Docs | Swagger / OpenAPI |
 
 ## Architecture
 
-The application follows Clean Architecture principles with a separation of concerns:
-
 ```
 src/
-├── api/                  # Presentation layer (Web API entry point, controllers, middleware)
-├── core/                 # Business logic layer (domain models, interfaces, services)
-└── external/             # External integrations (OWM client, background workers)
+├── api/                     # Controllers, middleware, AuthenticationService
+├── core/                    # Domain models, interfaces, services, entities
+└── external/                # OWM client, background workers
+tests/
+├── unit/                    # 12 unit tests (in-memory DB + mocks)
+└── integration/             # 7 integration tests (CustomWebApplicationFactory)
 ```
 
 ## API Endpoints
 
-### Public Endpoints
+### Public
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | Health check endpoint |
-| `GET` | `/api/weather/current/{locationId}` | Get current weather for a location |
-| `GET` | `/api/weather/forecast/{locationId}?days=5` | Get weather forecast (1-7 days) |
-| `GET` | `/api/weather/historical/{locationId}?date=YYYY-MM-DD` | Get historical weather (cached) |
-| `GET` | `/api/weather/export/{locationId}?format=csv` | Export weather data as CSV |
+| `GET` | `/health` | Health check |
+| `GET` | `/api/weather/current/{locationId}` | Current weather |
+| `GET` | `/api/weather/forecast/{locationId}?days=5` | Forecast (1-7 days) |
+| `GET` | `/api/weather/historical/{locationId}?date=YYYY-MM-DD` | Historical weather (cached) |
+| `GET` | `/api/weather/export/{locationId}?days=5` | CSV export |
 
-### Protected Endpoints (JWT required)
+### Auth (JWT required)
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/locations` | List all tracked locations |
-| `POST` | `/api/locations` | Add a new location |
-| `GET` | `/api/alerts` | List all weather alerts |
-| `DELETE` | `/api/weather/{locationId}` | Delete weather data for a location |
+| `POST` | `/api/auth/register` | Register user (password: 8+ chars, 1 uppercase, 1 digit) |
+| `POST` | `/api/auth/token` | Login, returns JWT |
+
+### Protected
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/location` | List locations |
+| `GET` | `/api/location/{id}` | Get location by ID |
+| `POST` | `/api/location` | Add location (city name) |
+| `DELETE` | `/api/location/{id}` | Delete location |
+| `GET` | `/api/alert?from=...&to=...&locationId=` | Filtered alerts (from/to required, max 7 days) |
+| `POST` | `/api/alert/subscribe` | Subscribe to alerts |
+| `DELETE` | `/api/alert/unsubscribe/{id}` | Unsubscribe |
+| `GET` | `/api/alert/subscriptions?email=` | List subscriptions |
+| `DELETE` | `/api/weather/{locationId}` | Delete weather data for location |
 
 ## Getting Started
 
 ### Prerequisites
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [PostgreSQL 15+](https://www.postgresql.org/download/)
+- [PostgreSQL 16](https://www.postgresql.org/download/)
 - [OpenWeatherMap API key](https://openweathermap.org/api) (free tier works)
 
-### Local Development Setup
+### Local Setup
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd weather-api
+1. **Set up the database**
+   ```sql
+   -- Run db_schemas.sql for fresh install
+   psql -h localhost -U your-username -d weather -f sql/db_schemas.sql
    ```
 
-2. **Set up the database**
-   ```bash
-   # Create the database
-   createdb weatherdb_dev
-
-   # Run migrations (after EF Core is set up)
-   dotnet ef database update --project src/core --startup-project src/api
+2. **Configure secrets** — create `src/api/appsettings.Development.json`:
+   ```json
+   {
+     "ConnectionStrings": {
+       "DefaultConnection": "Host=localhost;Port=5432;Database=weather;Username=your-username;Password=your-password"
+     },
+     "OpenWeatherMap": {
+       "ApiKey": "your-openweathermap-api-key",
+       "BaseUrl": "https://api.openweathermap.org"
+     },
+     "Jwt": {
+       "Key": "your-256-bit-secret-key"
+     }
+   }
    ```
 
-3. **Configure secrets**
+3. **Run the API**
    ```bash
-   # Set your OpenWeatherMap API key
-   dotnet user-secrets set "OpenWeatherMap:ApiKey" "your-openweathermap-api-key"
-
-   # Set JWT secret (use a strong secret in production)
-   dotnet user-secrets set "Jwt:Key" "your-super-secret-jwt-key"
+   dotnet run --project src/api
    ```
 
-4. **Run the API**
-   ```bash
-   dotnet run --project src/api/WeatherApi.csproj
-   ```
-
-5. **Access Swagger UI**
-   Open your browser to: `https://localhost:7001/swagger`
+4. **Swagger UI**: `http://localhost:5001/swagger` or `https://localhost:7001/swagger`
 
 ### Running Tests
 
 ```bash
-# Run unit tests
-dotnet test tests/unit/WeatherApi.Tests.Unit.csproj
-
-# Run integration tests
-dotnet test tests/integration/WeatherApi.Tests.Integration.csproj
-
-# Run all tests
 dotnet test WeatherApi.sln
 ```
 
-## Design Principles
+## Docker
 
-### Caching Strategy
-- **Current weather & forecast**: In-memory cache with 10-minute TTL
-- **Historical data**: Cache-fetched with 1-hour TTL (not persisted per assignment spec)
-- Cache key pattern: `weather:{type}:{locationId}:{date/days}`
+```bash
+docker build -t your-acr-name.azurecr.io/weather-api:latest .
+docker push your-acr-name.azurecr.io/weather-api:latest
+```
 
-### Resilience (Polly)
-- **Retry**: 3 attempts with exponential backoff (2s, 4s, 8s)
-- **Circuit breaker**: Opens after 5 consecutive failures, resets after 30s
-- **Timeout**: 15 seconds per OWM request
+## Deployment (Azure)
 
-### Data Management
-- **Background Worker**: Refreshes historical data every 6 hours
-- **Data Pruning**: Automatically removes data older than 30 days
-- **Location Tracking**: Manage cities and geographic coordinates
+### CI/CD
+Push to `master` triggers GitHub Actions with path filter (`src/**`, `tests/**`, `Dockerfile`, workflow files):
+1. Build + test (in-memory DB, no PostgreSQL dependency)
+2. Login to Azure + ACR
+3. Build & push Docker image to ACR
+4. Deploy to Azure App Service (B1, Southeast Asia)
 
-### Alerts System
-- Alerts are stored in PostgreSQL only (no external notification service)
-- Severity levels: `Low`, `Medium`, `High`, `Critical`
-- Automatic alert creation from OpenWeatherMap warnings
-- Mock email dispatching for demonstration purposes
+### App Settings (Environment Variables)
+| Key | Value |
+|-----|-------|
+| `ASPNETCORE_ENVIRONMENT` | Production |
+| `ASPNETCORE_URLS` | http://+:8080 |
+| `ConnectionStrings__DefaultConnection` | Azure PostgreSQL connection string |
+| `OpenWeatherMap__ApiKey` | OWM API key |
+| `Jwt__Key` | JWT signing secret |
+| `Worker__RefreshIntervalMinutes` | 60 |
+
+### Logging
+- **Runtime logs**: App Service → Monitoring → Log stream (Serilog console output)
+
+## Database
+
+Six tables across the `weather` PostgreSQL schema:
+
+| Table | Purpose |
+|-------|---------|
+| `Users` | Authentication (username + hashed password) |
+| `Locations` | Tracked cities with coordinates |
+| `DailyWeather` | Observed + predicted weather per location per day |
+| `HourlySummaries` | Hourly forecast data (replaced each worker cycle) |
+| `Alerts` | Weather alerts with severity and active status |
+| `AlertSubscriptions` | Email subscriptions per location |
+
+## Design Decisions
+
+### Forecast Response vs Current Weather
+- **Current weather** (`GET /api/weather/current/{id}`) returns full `WeatherData` (all observed fields)
+- **Forecast** (`GET /api/weather/forecast/{id}`) returns `ForecastDayResponse` (City, Country, Date, Description, Temperature, Min/Max)
+- **Export** returns CSV with unified columns: observed fills today's row, predicted fills future rows
+
+### Authentication
+- Registration-only (no seeded admin user)
+- Password validation: 8+ chars, 1 uppercase, 1 digit
+- JWT expiry configurable via `Jwt:ExpiryMinutes`
+
+### Background Worker
+- Fetches OWM OneCall API for all tracked locations
+- Upserts observed + predicted into `DailyWeather`
+- Replaces `HourlySummaries` (delete-all + re-insert)
+- Prunes data older than 30 days
+- Managed Identity via Azure SDK (no hardcoded credentials)
 
 ### Error Handling
-- RFC 7807 ProblemDetails for all error responses
-- Maps exceptions to appropriate HTTP status codes
-- `KeyNotFoundException` → 404
-- `UnauthorizedAccessException` → 401
-- `InvalidOperationException` → 400
-- Other → 500
+| Exception | HTTP Status |
+|-----------|-------------|
+| `KeyNotFoundException` | 404 |
+| `UnauthorizedAccessException` | 401 |
+| `InvalidOperationException` | 400 |
+| Other | 500 |
