@@ -28,23 +28,6 @@ public class AlertService(WeatherDbContext dbContext, ILogger<AlertService> logg
         return [.. alerts.Select(MapToResponse)];
     }
 
-    public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
-    {
-        _logger.LogWarning("Deleting alert by ID: {Id}", id);
-        var entity = await _dbContext.Alerts.FindAsync(new object[] { id }, ct);
-
-        if (entity == null)
-        {
-            _logger.LogInformation("Alert ID {Id} not found for deletion", id);
-            return false;
-        }
-
-        _dbContext.Alerts.Remove(entity);
-        await _dbContext.SaveChangesAsync(ct);
-        _logger.LogInformation("Successfully deleted alert ID: {Id}", id);
-        return true;
-    }
-
     public async Task<AlertSubscriptionResponse> SubscribeAsync(AlertSubscriptionDto dto, CancellationToken ct = default)
     {
         _logger.LogInformation("Creating alert subscription for {Email} at LocationId {LocationId}", dto.Email, dto.LocationId);

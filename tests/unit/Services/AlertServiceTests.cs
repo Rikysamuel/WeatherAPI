@@ -128,42 +128,4 @@ public class AlertServiceTests
 
         result.Should().BeEmpty();
     }
-
-    [Fact]
-    public async Task DeleteAsync_ReturnsFalseWhenNotFound()
-    {
-        using var ctx = CreateDbContext();
-        var svc = new AlertService(ctx, NullLogger<AlertService>.Instance);
-
-        var result = await svc.DeleteAsync(999);
-
-        result.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task DeleteAsync_RemovesAlertAndReturnsTrue()
-    {
-        using var ctx = CreateDbContext();
-        ctx.Locations.Add(new LocationEntity { City = "London", Country = "GB", Latitude = 51.5, Longitude = -0.13 });
-        ctx.SaveChanges();
-
-        var location = ctx.Locations.First();
-        var alert = new AlertEntity
-        {
-            LocationId = location.Id,
-            Message = "Storm warning",
-            Severity = AlertSeverity.Critical,
-            CreatedAt = DateTimeOffset.UtcNow,
-            IsActive = true
-        };
-        ctx.Alerts.Add(alert);
-        ctx.SaveChanges();
-
-        var svc = new AlertService(ctx, NullLogger<AlertService>.Instance);
-
-        var result = await svc.DeleteAsync(alert.Id);
-
-        result.Should().BeTrue();
-        (await ctx.Alerts.AnyAsync()).Should().BeFalse();
-    }
 }

@@ -24,7 +24,6 @@ public interface ILocationService
 public interface IAlertService
 {
     Task<IReadOnlyList<AlertResponse>> GetAlertsAsync(DateTimeOffset from, DateTimeOffset to, int? locationId = null, CancellationToken ct = default);
-    Task<bool> DeleteAsync(int id, CancellationToken ct = default);
 
     Task<AlertSubscriptionResponse> SubscribeAsync(AlertSubscriptionDto dto, CancellationToken ct = default);
     Task UnsubscribeAsync(int subscriptionId, CancellationToken ct = default);

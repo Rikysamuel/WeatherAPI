@@ -32,13 +32,6 @@ public class AlertController(IAlertService alertService) : BaseApiController
         return Ok(alerts);
     }
 
-    [HttpDelete("{id:int}")]
-    public async Task<IActionResult> DeleteAlert(int id, CancellationToken ct)
-    {
-        var success = await _alertService.DeleteAsync(id, ct);
-        return success ? NoContent() : NotFound();
-    }
-
     // ── Subscriptions ──
 
     [HttpPost("subscribe")]
